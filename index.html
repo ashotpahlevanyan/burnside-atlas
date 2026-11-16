@@ -101,6 +101,9 @@ header {
 }
 .chip[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); background: var(--accent-soft); }
 .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chip.act { color: var(--accent); border-style: dashed; }
+.chip.act:hover { background: var(--accent-soft); }
+.toggles .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; flex: none; }
 
 main { display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w); min-height: 0; }
 #stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
@@ -429,16 +432,32 @@ function applyVisibility() {
   edgeSel.attr('display', e => visible(e.source) && visible(e.target) ? null : 'none');
 }
 const toggles = document.getElementById('toggles');
+const domainBtn = new Map();
+function syncChips() {
+  for (const [d, b] of domainBtn) b.setAttribute('aria-pressed', domainOn.has(d));
+  iso.setAttribute('aria-pressed', showIsolated);
+  applyVisibility();
+}
+function action(label, title, fn) {
+  const b = document.createElement('button'); b.className = 'chip act'; b.textContent = label; b.title = title;
+  b.onclick = () => { fn(); syncChips(); };
+  toggles.appendChild(b);
+}
+action('All', 'Show every domain', () => Object.keys(DOMAIN_NAME).forEach(d => domainOn.add(d)));
+action('None', 'Hide every domain', () => domainOn.clear());
+action('Reset', 'Back to the default view: all domains, unlinked items hidden',
+  () => { Object.keys(DOMAIN_NAME).forEach(d => domainOn.add(d)); showIsolated = false; });
+const sep = document.createElement('span'); sep.className = 'sep'; sep.setAttribute('aria-hidden', 'true'); toggles.appendChild(sep);
 for (const [d, name] of Object.entries(DOMAIN_NAME)) {
   const b = document.createElement('button'); b.className = 'chip'; b.textContent = name; b.setAttribute('aria-pressed', 'true');
-  b.onclick = () => { domainOn.has(d) ? domainOn.delete(d) : domainOn.add(d); b.setAttribute('aria-pressed', domainOn.has(d)); applyVisibility(); };
-  toggles.appendChild(b);
+  b.onclick = () => { domainOn.has(d) ? domainOn.delete(d) : domainOn.add(d); syncChips(); };
+  domainBtn.set(d, b); toggles.appendChild(b);
 }
 const iso = document.createElement('button'); iso.className = 'chip'; iso.setAttribute('aria-pressed', 'false');
 const nIso = nodes.filter(n => !n.deg).length;
 iso.textContent = `Unlinked items (${nIso})`;
 iso.title = 'Items with no links yet, mostly Kourovka problems';
-iso.onclick = () => { showIsolated = !showIsolated; iso.setAttribute('aria-pressed', showIsolated); applyVisibility(); };
+iso.onclick = () => { showIsolated = !showIsolated; syncChips(); };
 toggles.appendChild(iso);
 
 // --- legend ------------------------------------------------------------------------------
